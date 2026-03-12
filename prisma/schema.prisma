@@ -1,0 +1,72 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Local {
+  id              String     @id @default(cuid())
+  nombre          String
+  evolution_token String
+  sucursales      Sucursal[]
+}
+
+model Sucursal {
+  id                   String        @id @default(cuid())
+  local_id             String
+  nombre               String
+  slug                 String        @unique // URL pública: nexreserva.cl/[slug]
+  limite_profesionales Int           @default(10)
+  local                Local         @relation(fields: [local_id], references: [id])
+  profesionales        Profesional[]
+  servicios            Servicio[]
+  citas                Cita[]
+}
+
+model Profesional {
+  id                 String   @id @default(cuid())
+  sucursal_id        String
+  nombre             String
+  foto_url           String
+  telefono           String
+  google_calendar_id String
+  sucursal           Sucursal @relation(fields: [sucursal_id], references: [id])
+  citas              Cita[]
+}
+
+model Servicio {
+  id               String   @id @default(cuid())
+  sucursal_id      String
+  nombre           String
+  duracion_minutos Int
+  precio           Int // CLP, sin decimales
+  sucursal         Sucursal @relation(fields: [sucursal_id], references: [id])
+  citas            Cita[]
+}
+
+enum EstadoCita {
+  activa
+  pagada
+  cancelada_cliente
+  cancelada_barbero
+}
+
+model Cita {
+  id                   String      @id @default(cuid())
+  sucursal_id          String
+  profesional_id       String
+  servicio_id          String
+  cliente_telefono     String
+  fecha_hora_inicio    DateTime
+  fecha_hora_fin       DateTime
+  estado               EstadoCita  @default(activa)
+  recordatorio_enviado Boolean     @default(false)
+  sucursal             Sucursal    @relation(fields: [sucursal_id], references: [id])
+  profesional          Profesional @relation(fields: [profesional_id], references: [id])
+  servicio             Servicio    @relation(fields: [servicio_id], references: [id])
+}
