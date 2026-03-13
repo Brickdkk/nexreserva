@@ -1,6 +1,6 @@
 /**
- * Agente de IA para NexReserva usando Vercel AI SDK.
- * Modelo: Claude 3.5 Haiku (Anthropic) — fallback a GPT-4o-mini (OpenAI).
+ * Agente de IA para NexReserva usando Vercel AI SDK con Google Gemini.
+ * Modelo: gemini-2.0-flash — rápido y económico para respuestas de WhatsApp.
  *
  * Responsabilidades:
  *  1. Responder mensajes de WhatsApp preguntando por local y sucursal.
@@ -9,7 +9,7 @@
  */
 
 import { generateText } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { google } from "@ai-sdk/google";
 
 import { prisma } from "@/lib/prisma";
 
@@ -37,7 +37,7 @@ export interface AgentMessage {
 }
 
 /**
- * Procesa un mensaje de WhatsApp con el agente IA.
+ * Procesa un mensaje de WhatsApp con el agente IA (Gemini 2.0 Flash).
  * Retorna la respuesta del bot como string.
  */
 export async function processWhatsAppMessage(
@@ -45,7 +45,7 @@ export async function processWhatsAppMessage(
 ): Promise<string> {
   try {
     const { text } = await generateText({
-      model: anthropic("claude-haiku-4-5"),
+      model: google("gemini-2.0-flash"),
       system: SYSTEM_PROMPT,
       messages,
     });
@@ -88,7 +88,7 @@ export async function findSucursalByNombre(
     }
 
     if (nombreSucursal) {
-      const sucursal = local.sucursales.find((s) =>
+      const sucursal = local.sucursales.find((s: { nombre: string; slug: string }) =>
         s.nombre.toLowerCase().includes(nombreSucursal.toLowerCase()),
       );
       if (sucursal) return { slug: sucursal.slug, nombre: sucursal.nombre };
