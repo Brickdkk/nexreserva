@@ -1,5 +1,13 @@
-import { auth } from "@/auth";
+/**
+ * middleware.ts — Edge runtime.
+ * Importa NextAuth con la config Edge-safe (sin Prisma/pg).
+ * La sesión viene del JWT (no consulta la BD).
+ */
+import NextAuth from "next-auth";
+import { authConfig } from "@/auth.config";
 import { NextResponse } from "next/server";
+
+const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
@@ -14,8 +22,11 @@ export default auth((req) => {
     pathname.startsWith("/api/disponibilidad") ||
     pathname.startsWith("/api/reservas") ||
     pathname.startsWith("/api/checkout") ||
-    // slug del negocio B2C — cualquier ruta de un solo segmento que no sea /admin
-    (pathname.split("/").length === 2 && !pathname.startsWith("/admin") && !pathname.startsWith("/profesional"));
+    // slug del negocio B2C — cualquier ruta de un solo segmento sin /admin ni /profesional
+    (pathname.split("/").length === 2 &&
+      !pathname.startsWith("/admin") &&
+      !pathname.startsWith("/profesional") &&
+      !pathname.startsWith("/onboarding"));
 
   if (isPublic) return NextResponse.next();
 

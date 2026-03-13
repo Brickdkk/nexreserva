@@ -1,30 +1,44 @@
+/**
+ * auth.ts — configuración completa de NextAuth (Node.js runtime).
+ * Usa PrismaAdapter + session callback que consulta la BD.
+ * Importado SOLO en Server Components y Route Handlers, nunca en middleware.
+ */
 import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
+import { authConfig } from "@/auth.config";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  ...authConfig,
+  // Sobrescribir session strategy a "jwt" (necesario con PrismaAdapter en v5 beta)
+  session: { strategy: "jwt" },
   adapter: PrismaAdapter(prisma),
-  providers: [
-    Google({
-      clientId: process.env.AUTH_GOOGLE_ID!,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET!,
-    }),
-  ],
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
   callbacks: {
-    async session({ session, user }) {
-      session.user.id = user.id;
-      // Inyectar estado de suscripción en la sesión
-      const dbUser = await prisma.user.findUnique({
-        where: { id: user.id },
-        select: { subscriptionPlan: true, subscriptionUntil: true },
-      });
-      session.user.subscriptionPlan = dbUser?.subscriptionPlan ?? null;
-      session.user.subscriptionUntil = dbUser?.subscriptionUntil ?? null;
+    ...authConfig.callbacks,
+    // Enriquecer el JWT con datos de suscripción desde la BD
+    async jwt({ token, user, trigger, account }) {
+      // En login inicial o cuando se hace update(), refrescar desde BD
+      if (user) {
+        token.id = user.id;
+      }
+      if (token.id && (trigger === "signIn" || trigger === "update" || !token.subscriptionPlan)) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { subscriptionPlan: true, subscriptionUntil: true },
+        });
+        token.subscriptionPlan = dbUser?.subscriptionPlan ?? null;
+        token.subscriptionUntil = dbUser?.subscriptionUntil?.toISOString() ?? null;
+      }
+      return token;
+    },
+    session({ session, token }) {
+      if (token) {
+        session.user.id = token.id as string;
+        session.user.subscriptionPlan = (token.subscriptionPlan as string) ?? null;
+        session.user.subscriptionUntil = token.subscriptionUntil
+          ? new Date(token.subscriptionUntil as string)
+          : null;
+      }
       return session;
     },
   },
