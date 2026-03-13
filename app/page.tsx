@@ -14,10 +14,10 @@ export default function LandingPage() {
           </span>
           <div className="flex items-center gap-3">
             <a
-              href="/admin"
+              href="/login"
               className="text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors"
             >
-              Acceder
+              Iniciar sesión
             </a>
             <a href="#planes">
               <Button size="sm">Ver Planes</Button>
@@ -29,9 +29,6 @@ export default function LandingPage() {
       {/* ───────── HERO ───────── */}
       <section className="bg-white pt-20 pb-24 px-4 sm:px-6 text-center">
         <div className="max-w-3xl mx-auto">
-          <span className="inline-block bg-cyan-50 text-cyan-600 text-xs font-semibold px-3 py-1 rounded-full mb-6 tracking-wide uppercase">
-            Micro-SaaS para Chile 🇨🇱
-          </span>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-tight">
             Tu negocio atiende, agenda y{" "}
             <span className="text-cyan-500">recuerda citas</span> en piloto
@@ -105,82 +102,149 @@ export default function LandingPage() {
 
       {/* ───────── PLANES / PRICING ───────── */}
       <section id="planes" className="bg-white py-20 px-4 sm:px-6">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl font-bold text-center text-gray-900 mb-4">
             Planes simples, sin sorpresas
           </h2>
           <p className="text-center text-gray-500 mb-14">
             Paga mensual. Cancela cuando quieras.
           </p>
-          <div className="grid sm:grid-cols-2 gap-8">
-            {/* Plan 1 Sucursal */}
-            <div className="rounded-2xl border-2 border-gray-200 p-8 flex flex-col">
-              <h3 className="text-xl font-bold text-gray-900">1 Sucursal</h3>
-              <p className="text-gray-500 text-sm mt-1">
-                Ideal para negocios con una sola ubicación.
-              </p>
-              <div className="mt-6 mb-8">
-                <span className="text-4xl font-extrabold text-gray-900">
-                  $15.990
-                </span>
-                <span className="text-gray-400 text-sm ml-1">CLP / mes</span>
+
+          {/* 4 planes en grid */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+
+            {/* Plan Básico */}
+            <div className="rounded-2xl border-2 border-gray-200 p-6 flex flex-col">
+              <h3 className="text-base font-bold text-gray-900">Básico</h3>
+              <p className="text-gray-500 text-xs mt-1">1 sucursal · hasta 6 profesionales</p>
+              <div className="mt-5 mb-6">
+                <span className="text-3xl font-extrabold text-gray-900">$14.990</span>
+                <span className="text-gray-400 text-xs ml-1">CLP/mes</span>
               </div>
-              <ul className="space-y-3 text-sm text-gray-600 mb-8 flex-1">
+              <ul className="space-y-2 text-xs text-gray-600 mb-6 flex-1">
                 {[
-                  "Hasta 10 profesionales",
-                  "Reserva B2C por link único",
+                  "1 sucursal",
+                  "Hasta 6 profesionales",
+                  "Reserva por link único",
                   "Bot WhatsApp con IA",
-                  "Recordatorios 24h automáticos",
-                  "Integración Google Calendar",
+                  "Recordatorios 24h",
+                  "Google Calendar",
                   "Dashboard de finanzas",
                 ].map((f) => (
                   <li key={f} className="flex items-center gap-2">
-                    <span className="text-cyan-500">✓</span> {f}
+                    <span className="text-cyan-500 font-bold">✓</span> {f}
                   </li>
                 ))}
               </ul>
-              <a href="/admin">
-                <Button className="w-full">Comenzar ahora</Button>
+              <a href="/api/checkout/basico">
+                <Button className="w-full" size="sm">Comenzar ahora</Button>
               </a>
             </div>
 
-            {/* Plan Multi-Sucursal */}
-            <div className="rounded-2xl border-2 border-cyan-500 p-8 flex flex-col relative">
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-cyan-500 text-white text-xs font-semibold px-4 py-1 rounded-full">
-                Más popular
-              </span>
-              <h3 className="text-xl font-bold text-gray-900">
-                Multi-Sucursal
-              </h3>
-              <p className="text-gray-500 text-sm mt-1">
-                Para cadenas con 2 o más locales.
-              </p>
-              <div className="mt-6 mb-8">
-                <span className="text-4xl font-extrabold text-gray-900">
-                  $27.990
-                </span>
-                <span className="text-gray-400 text-sm ml-1">CLP / mes</span>
+            {/* Plan Avanzado */}
+            <div className="rounded-2xl border-2 border-gray-200 p-6 flex flex-col">
+              <h3 className="text-base font-bold text-gray-900">Avanzado</h3>
+              <p className="text-gray-500 text-xs mt-1">1 sucursal · hasta 10 profesionales</p>
+              <div className="mt-5 mb-6">
+                <span className="text-3xl font-extrabold text-gray-900">$22.990</span>
+                <span className="text-gray-400 text-xs ml-1">CLP/mes</span>
               </div>
-              <ul className="space-y-3 text-sm text-gray-600 mb-8 flex-1">
+              <ul className="space-y-2 text-xs text-gray-600 mb-6 flex-1">
                 {[
-                  "Sucursales ilimitadas",
-                  "Hasta 10 profesionales por sucursal",
-                  "Link único por sucursal",
-                  "Bot WhatsApp con IA multilocal",
-                  "Recordatorios 24h automáticos",
-                  "Integración Google Calendar",
-                  "Dashboard consolidado global",
-                  "Reportes por sucursal",
+                  "1 sucursal",
+                  "Hasta 10 profesionales",
+                  "Reserva por link único",
+                  "Bot WhatsApp con IA",
+                  "Recordatorios 24h",
+                  "Google Calendar",
+                  "Dashboard de finanzas",
                 ].map((f) => (
                   <li key={f} className="flex items-center gap-2">
-                    <span className="text-cyan-500">✓</span> {f}
+                    <span className="text-cyan-500 font-bold">✓</span> {f}
                   </li>
                 ))}
               </ul>
-              <a href="/admin">
-                <Button className="w-full">Comenzar ahora</Button>
+              <a href="/api/checkout/avanzado">
+                <Button className="w-full" size="sm">Comenzar ahora</Button>
               </a>
             </div>
+
+            {/* Plan Multi-Básico — destacado */}
+            <div className="rounded-2xl border-2 border-cyan-500 p-6 flex flex-col relative">
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-cyan-500 text-white text-[10px] font-semibold px-3 py-1 rounded-full whitespace-nowrap">
+                Más popular
+              </span>
+              <h3 className="text-base font-bold text-gray-900">Multi-Básico</h3>
+              <p className="text-gray-500 text-xs mt-1">2+ sucursales · hasta 6 por sucursal</p>
+              <div className="mt-5 mb-6">
+                <span className="text-3xl font-extrabold text-gray-900">$27.990</span>
+                <span className="text-gray-400 text-xs ml-1">CLP/mes</span>
+              </div>
+              <ul className="space-y-2 text-xs text-gray-600 mb-6 flex-1">
+                {[
+                  "Sucursales ilimitadas",
+                  "Hasta 6 profesionales c/u",
+                  "Link único por sucursal",
+                  "Bot IA multilocal",
+                  "Recordatorios 24h",
+                  "Google Calendar",
+                  "Dashboard consolidado",
+                  "Reportes por sucursal",
+                ].map((f) => (
+                  <li key={f} className="flex items-center gap-2">
+                    <span className="text-cyan-500 font-bold">✓</span> {f}
+                  </li>
+                ))}
+              </ul>
+              <a href="/api/checkout/multi_basico">
+                <Button className="w-full" size="sm">Comenzar ahora</Button>
+              </a>
+            </div>
+
+            {/* Plan Multi-Avanzado */}
+            <div className="rounded-2xl border-2 border-gray-200 p-6 flex flex-col">
+              <h3 className="text-base font-bold text-gray-900">Multi-Avanzado</h3>
+              <p className="text-gray-500 text-xs mt-1">2+ sucursales · hasta 10 por sucursal</p>
+              <div className="mt-5 mb-6">
+                <span className="text-3xl font-extrabold text-gray-900">$36.990</span>
+                <span className="text-gray-400 text-xs ml-1">CLP/mes</span>
+              </div>
+              <ul className="space-y-2 text-xs text-gray-600 mb-6 flex-1">
+                {[
+                  "Sucursales ilimitadas",
+                  "Hasta 10 profesionales c/u",
+                  "Link único por sucursal",
+                  "Bot IA multilocal",
+                  "Recordatorios 24h",
+                  "Google Calendar",
+                  "Dashboard consolidado",
+                  "Reportes por sucursal",
+                ].map((f) => (
+                  <li key={f} className="flex items-center gap-2">
+                    <span className="text-cyan-500 font-bold">✓</span> {f}
+                  </li>
+                ))}
+              </ul>
+              <a href="/api/checkout/multi_avanzado">
+                <Button className="w-full" size="sm">Comenzar ahora</Button>
+              </a>
+            </div>
+          </div>
+
+          {/* Plan Enterprise */}
+          <div className="rounded-2xl border border-dashed border-gray-300 p-6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-gray-50">
+            <div>
+              <h3 className="text-base font-bold text-gray-900">Plan Especial / Enterprise</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Requerimientos superiores, integraciones a medida o volumen alto de sucursales.
+              </p>
+            </div>
+            <a
+              href="mailto:e.tillemanne@gmail.com"
+              className="shrink-0"
+            >
+              <Button variant="secondary" size="sm">Contactar →</Button>
+            </a>
           </div>
         </div>
       </section>

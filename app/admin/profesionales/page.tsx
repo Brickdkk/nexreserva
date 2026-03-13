@@ -1,20 +1,31 @@
-// Flujo 2 — CRUD de Profesionales (valida límite 10 por sucursal)
+// Flujo 2 — CRUD de Profesionales (valida límite por plan: 6 o 10 por sucursal)
 // Fuerza renderizado dinámico (requiere BD en tiempo real; no pre-renderizar).
 export const dynamic = "force-dynamic";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import type { PlanSuscripcion } from "@prisma/client";
 
-const MAX_PROFESIONALES_POR_SUCURSAL = 10;
+// Límite de profesionales según plan
+function limitePorPlan(plan: PlanSuscripcion | null | undefined): number {
+  if (!plan) return 6;
+  if (plan === "avanzado" || plan === "multi_avanzado") return 10;
+  return 6; // basico, multi_basico
+}
 
 // ─── Server Actions ────────────────────────────────────────────────────────────
 
 async function crearProfesional(formData: FormData) {
   "use server";
   try {
+    const session = await auth();
+    if (!session?.user?.id) redirect("/login");
+
     const sucursal_id = formData.get("sucursal_id") as string;
     const nombre = formData.get("nombre") as string;
     const foto_url = formData.get("foto_url") as string;
@@ -23,15 +34,25 @@ async function crearProfesional(formData: FormData) {
 
     if (!sucursal_id || !nombre?.trim() || !telefono?.trim()) return;
 
-    // Validar límite estricto de 10 profesionales por sucursal
-    const count = await prisma.profesional.count({
-      where: { sucursal_id },
+    // Obtener el plan del usuario para aplicar límite correcto
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { subscriptionPlan: true },
     });
+    const limite = limitePorPlan(user?.subscriptionPlan);
 
-    if (count >= MAX_PROFESIONALES_POR_SUCURSAL) {
-      // El error se manejará con un redirect con mensaje de error
-      // En producción usar searchParams o un toast
-      console.error("[crearProfesional] Límite de profesionales alcanzado");
+    // Validar que la sucursal pertenece al local del usuario
+    const local = await prisma.local.findUnique({ where: { userId: session.user.id } });
+    if (!local) return;
+    const sucursal = await prisma.sucursal.findFirst({
+      where: { id: sucursal_id, local_id: local.id },
+    });
+    if (!sucursal) return;
+
+    // Validar límite estricto de profesionales por sucursal
+    const count = await prisma.profesional.count({ where: { sucursal_id } });
+    if (count >= limite) {
+      console.error(`[crearProfesional] Límite de ${limite} profesionales alcanzado`);
       return;
     }
 
@@ -66,22 +87,39 @@ async function eliminarProfesional(formData: FormData) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function ProfesionalesPage() {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  const userId = session.user.id;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { subscriptionPlan: true },
+  });
+  const limite = limitePorPlan(user?.subscriptionPlan);
+
+  const local = await prisma.local.findUnique({ where: { userId } });
+
   const [sucursales, profesionales] = await Promise.all([
-    prisma.sucursal.findMany({
-      orderBy: { nombre: "asc" },
-      include: {
-        local: { select: { nombre: true } },
-        _count: { select: { profesionales: true } },
-      },
-    }),
-    prisma.profesional.findMany({
-      orderBy: { nombre: "asc" },
-      include: {
-        sucursal: {
-          select: { nombre: true, slug: true },
-        },
-      },
-    }),
+    local
+      ? prisma.sucursal.findMany({
+          where: { local_id: local.id },
+          orderBy: { nombre: "asc" },
+          include: {
+            local: { select: { nombre: true } },
+            _count: { select: { profesionales: true } },
+          },
+        })
+      : Promise.resolve([]),
+    local
+      ? prisma.profesional.findMany({
+          where: { sucursal: { local_id: local.id } },
+          orderBy: { nombre: "asc" },
+          include: {
+            sucursal: { select: { nombre: true, slug: true } },
+          },
+        })
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -105,7 +143,7 @@ export default async function ProfesionalesPage() {
         <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
           <h2 className="text-lg font-bold text-gray-900 mb-1">Agregar Profesional</h2>
           <p className="text-xs text-gray-400 mb-5">
-            Máximo {MAX_PROFESIONALES_POR_SUCURSAL} profesionales por sucursal.
+            Máximo {limite} profesionales por sucursal según tu plan.
           </p>
           {sucursales.length === 0 ? (
             <p className="text-sm text-gray-400">
@@ -126,10 +164,10 @@ export default async function ProfesionalesPage() {
                     <option
                       key={s.id}
                       value={s.id}
-                      disabled={s._count.profesionales >= MAX_PROFESIONALES_POR_SUCURSAL}
+                      disabled={s._count.profesionales >= limite}
                     >
                       {s.local.nombre} — {s.nombre}
-                      {s._count.profesionales >= MAX_PROFESIONALES_POR_SUCURSAL ? " (lleno)" : ` (${s._count.profesionales}/${MAX_PROFESIONALES_POR_SUCURSAL})`}
+                      {s._count.profesionales >= limite ? " (lleno)" : ` (${s._count.profesionales}/${limite})`}
                     </option>
                   ))}
                 </select>

@@ -5,20 +5,47 @@ export const dynamic = "force-dynamic";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import type { PlanSuscripcion } from "@prisma/client";
+
+// Límite de sucursales según plan
+function sucursalesIlimitadas(plan: PlanSuscripcion | null | undefined): boolean {
+  return plan === "multi_basico" || plan === "multi_avanzado";
+}
 
 // ─── Server Actions ────────────────────────────────────────────────────────────
 
 async function crearSucursal(formData: FormData) {
   "use server";
   try {
+    const session = await auth();
+    if (!session?.user?.id) redirect("/login");
+
     const nombre = formData.get("nombre") as string;
     const localId = formData.get("local_id") as string;
 
     if (!nombre?.trim() || !localId?.trim()) return;
+
+    // Validar que el local pertenece al usuario
+    const local = await prisma.local.findFirst({
+      where: { id: localId, userId: session.user.id },
+      include: { _count: { select: { sucursales: true } } },
+    });
+    if (!local) return;
+
+    // Verificar límite de sucursales según plan
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { subscriptionPlan: true },
+    });
+    if (!sucursalesIlimitadas(user?.subscriptionPlan) && local._count.sucursales >= 1) {
+      console.error("[crearSucursal] Tu plan solo permite 1 sucursal. Actualiza a Multi.");
+      return;
+    }
 
     const slug = slugify(nombre);
 
@@ -53,17 +80,32 @@ async function eliminarSucursal(formData: FormData) {
 async function crearLocal(formData: FormData) {
   "use server";
   try {
+    const session = await auth();
+    if (!session?.user?.id) redirect("/login");
+
     const nombre = formData.get("nombre") as string;
     const evolution_token = formData.get("evolution_token") as string;
 
     if (!nombre?.trim()) return;
 
-    await prisma.local.create({
-      data: {
-        nombre: nombre.trim(),
-        evolution_token: evolution_token?.trim() ?? "",
-      },
-    });
+    const existing = await prisma.local.findUnique({ where: { userId: session.user.id } });
+    if (existing) {
+      await prisma.local.update({
+        where: { userId: session.user.id },
+        data: {
+          nombre: nombre.trim(),
+          evolution_token: evolution_token?.trim() ?? "",
+        },
+      });
+    } else {
+      await prisma.local.create({
+        data: {
+          nombre: nombre.trim(),
+          evolution_token: evolution_token?.trim() ?? "",
+          userId: session.user.id,
+        },
+      });
+    }
 
     revalidatePath("/admin/sucursales");
   } catch (error) {
@@ -74,15 +116,33 @@ async function crearLocal(formData: FormData) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function SucursalesPage() {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  const userId = session.user.id;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { subscriptionPlan: true },
+  });
+  const multiPlan = sucursalesIlimitadas(user?.subscriptionPlan);
+
+  const userLocal = await prisma.local.findUnique({ where: { userId } });
+
   const [locales, sucursales] = await Promise.all([
-    prisma.local.findMany({ orderBy: { nombre: "asc" } }),
-    prisma.sucursal.findMany({
-      orderBy: { nombre: "asc" },
-      include: {
-        local: { select: { nombre: true } },
-        _count: { select: { profesionales: true, citas: true } },
-      },
-    }),
+    userLocal
+      ? prisma.local.findMany({ where: { userId }, orderBy: { nombre: "asc" } })
+      : Promise.resolve([]),
+    userLocal
+      ? prisma.sucursal.findMany({
+          where: { local_id: userLocal.id },
+          orderBy: { nombre: "asc" },
+          include: {
+            local: { select: { nombre: true } },
+            _count: { select: { profesionales: true, citas: true } },
+          },
+        })
+      : Promise.resolve([]),
   ]);
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://nexreserva.cl";
@@ -133,9 +193,19 @@ export default async function SucursalesPage() {
 
         {/* Crear Sucursal */}
         <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Agregar Sucursal</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Agregar Sucursal</h2>
+          <p className="text-xs text-gray-400 mb-4">
+            {multiPlan
+              ? "Tu plan permite sucursales ilimitadas."
+              : `Tu plan permite 1 sucursal. Tienes ${sucursales.length}/1.${sucursales.length >= 1 ? " Actualiza a Multi para agregar más." : ""}`}
+          </p>
           {locales.length === 0 ? (
             <p className="text-sm text-gray-400">Primero crea un local para poder agregar sucursales.</p>
+          ) : !multiPlan && sucursales.length >= 1 ? (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
+              Tu plan actual solo permite 1 sucursal.{" "}
+              <a href="/onboarding" className="underline font-semibold">Actualiza tu plan</a> para agregar más.
+            </div>
           ) : (
             <form action={crearSucursal} className="grid sm:grid-cols-3 gap-4">
               <div className="flex flex-col gap-1">

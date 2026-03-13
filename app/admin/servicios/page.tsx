@@ -3,7 +3,9 @@
 export const dynamic = "force-dynamic";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { formatPrice } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,12 +16,23 @@ import Link from "next/link";
 async function crearServicio(formData: FormData) {
   "use server";
   try {
+    const session = await auth();
+    if (!session?.user?.id) redirect("/login");
+
     const nombre = formData.get("nombre") as string;
     const sucursal_id = formData.get("sucursal_id") as string;
     const duracion_minutos = parseInt(formData.get("duracion_minutos") as string, 10);
     const precio = parseInt(formData.get("precio") as string, 10);
 
     if (!nombre?.trim() || !sucursal_id || isNaN(duracion_minutos) || isNaN(precio)) return;
+
+    // Validar que la sucursal pertenece al local del usuario
+    const local = await prisma.local.findUnique({ where: { userId: session.user.id } });
+    if (!local) return;
+    const sucursal = await prisma.sucursal.findFirst({
+      where: { id: sucursal_id, local_id: local.id },
+    });
+    if (!sucursal) return;
 
     await prisma.servicio.create({
       data: {
@@ -51,17 +64,27 @@ async function eliminarServicio(formData: FormData) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function ServiciosPage() {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  const userId = session.user.id;
+  const local = await prisma.local.findUnique({ where: { userId } });
+
   const [sucursales, servicios] = await Promise.all([
-    prisma.sucursal.findMany({
-      orderBy: { nombre: "asc" },
-      include: { local: { select: { nombre: true } } },
-    }),
-    prisma.servicio.findMany({
-      orderBy: { nombre: "asc" },
-      include: {
-        sucursal: { select: { nombre: true } },
-      },
-    }),
+    local
+      ? prisma.sucursal.findMany({
+          where: { local_id: local.id },
+          orderBy: { nombre: "asc" },
+          include: { local: { select: { nombre: true } } },
+        })
+      : Promise.resolve([]),
+    local
+      ? prisma.servicio.findMany({
+          where: { sucursal: { local_id: local.id } },
+          orderBy: { nombre: "asc" },
+          include: { sucursal: { select: { nombre: true } } },
+        })
+      : Promise.resolve([]),
   ]);
 
   return (

@@ -2,17 +2,29 @@
 // Fuerza renderizado dinámico (requiere BD en tiempo real; no pre-renderizar).
 export const dynamic = "force-dynamic";
 
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { formatPrice } from "@/lib/utils";
 import { StatCard } from "@/components/ui/card";
 import Link from "next/link";
 
-async function getDashboardData() {
+async function getDashboardData(userId: string) {
+  // Get user's local → sucursales IDs to scope all queries
+  const local = await prisma.local.findUnique({
+    where: { userId },
+    include: { sucursales: { select: { id: true } } },
+  });
+  const sucursalIds = local?.sucursales.map((s) => s.id) ?? [];
+
+  const scopedWhere = sucursalIds.length > 0 ? { sucursal_id: { in: sucursalIds } } : { id: "none" };
+
   const [ingresosSemana, ingresosMes, ingresosAnio, totalCanceladas, clientesFrecuentes] =
     await Promise.all([
       // Ingresos semana (últimos 7 días, citas pagadas)
       prisma.cita.findMany({
         where: {
+          ...scopedWhere,
           estado: "pagada",
           fecha_hora_inicio: {
             gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
@@ -23,6 +35,7 @@ async function getDashboardData() {
       // Ingresos mes (últimos 30 días)
       prisma.cita.findMany({
         where: {
+          ...scopedWhere,
           estado: "pagada",
           fecha_hora_inicio: {
             gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
@@ -33,6 +46,7 @@ async function getDashboardData() {
       // Ingresos año
       prisma.cita.findMany({
         where: {
+          ...scopedWhere,
           estado: "pagada",
           fecha_hora_inicio: {
             gte: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
@@ -43,16 +57,20 @@ async function getDashboardData() {
       // Total canceladas
       prisma.cita.count({
         where: {
+          ...scopedWhere,
           estado: { in: ["cancelada_cliente", "cancelada_barbero"] },
         },
       }),
       // Clientes frecuentes (top 10 por número telefónico)
-      prisma.cita.groupBy({
-        by: ["cliente_telefono"],
-        _count: { cliente_telefono: true },
-        orderBy: { _count: { cliente_telefono: "desc" } },
-        take: 10,
-      }),
+      sucursalIds.length > 0
+        ? prisma.cita.groupBy({
+            by: ["cliente_telefono"],
+            where: scopedWhere,
+            _count: { cliente_telefono: true },
+            orderBy: { _count: { cliente_telefono: "desc" } },
+            take: 10,
+          })
+        : Promise.resolve([]),
     ]);
 
   const sumaPrecios = (citas: { servicio: { precio: number } }[]) =>
@@ -71,7 +89,10 @@ async function getDashboardData() {
 }
 
 export default async function AdminDashboard() {
-  const data = await getDashboardData();
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  const data = await getDashboardData(session.user.id);
 
   return (
     <div className="min-h-screen bg-gray-50">
