@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 
 export default function OnboardingPage() {
@@ -9,6 +10,7 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const { update } = useSession();
 
   async function handleRedeem(e: React.FormEvent) {
     e.preventDefault();
@@ -24,6 +26,8 @@ export default function OnboardingPage() {
       if (!res.ok) {
         setError(data.error ?? "Código inválido o ya utilizado.");
       } else {
+        // Refresh the JWT so middleware sees the new subscriptionUntil
+        await update();
         router.push("/admin");
       }
     } catch {

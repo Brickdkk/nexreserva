@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Providers } from "@/app/providers";
 
 export const metadata: Metadata = {
   title: "NexReserva — Sistema de Agendamiento para Chile",
@@ -23,7 +24,9 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="bg-white text-gray-900 font-sans antialiased">{children}</body>
+      <body className="bg-white text-gray-900 font-sans antialiased">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }
